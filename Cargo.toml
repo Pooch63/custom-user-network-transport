@@ -1,0 +1,8 @@
+[package]
+name = "custom-user-network-transport"
+version = "0.1.0"
+authors = ["Kiyaan Pillai <kiyaan.pillai@gmail.com>"]
+edition = "2024"
+
+[dependencies]
+rand = "0.9.0"

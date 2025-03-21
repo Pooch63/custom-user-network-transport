@@ -16,13 +16,23 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
 
     That is actually tested to be slower than the following implementation:
 */
+fn gcd(a: u64, b: u64) -> u64 {
     if a == 0 || b == 0 { return 0; }
+
     let mut copy_a: u64 = a;
     let mut copy_b: u64 = b;
     while copy_a != copy_b {
+        if copy_a == copy_b { return copy_a; }
         if copy_a > copy_b {
             copy_a = copy_a % copy_b;
+            if copy_a == 0 { return copy_b; };
+        }
+        else {
+            copy_b = copy_b % copy_a;
+            if copy_b == 0 { return copy_a; }
+        }
     }
+    return copy_a;
 }
 
 fn number_bit_set(num: u64, bit: u8) -> bool {

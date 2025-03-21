@@ -113,7 +113,7 @@ impl NumberHandler {
     }
     fn miller_rabin_prime_test(&mut self, num: u64, iterations: u8) -> bool {
         // If it's even and not 2, it's not a prime
-        if num == 2 { return true; }
+        if num < 3 { return num == 2; }
         if (num & 1) == 0 { return false; }
     
         // // Find a 2^e * m = num
@@ -141,11 +141,13 @@ impl NumberHandler {
         return self.get_rng().random::<u64>();
     }
     fn get_random_prime(&mut self, iterations: u8) -> u64 {
-        while (true) {
-            let candidate: u64 = self.get_rng().random::<u16>() as u64;
+        loop {
+            let candidate: u64 = self.get_rng().random::<u8>() as u64;
             let mut valid: bool = true;
-            for prime in 0..first_primes.len() {
-                if candidate % first_primes[prime] == 0 {
+            for prime in 0..FIRST_PRIMES.len() {
+                // Can't be divisible by numbers greater than it
+                if candidate * candidate > FIRST_PRIMES[prime] { break; }
+                if candidate % FIRST_PRIMES[prime] == 0 {
                     valid = false;
                     break;
                 }

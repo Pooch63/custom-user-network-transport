@@ -130,6 +130,21 @@ impl NumberHandler {
         }
         return 1;
     }
+    // Get a random prime different from the given number
+    fn get_different_random_prime(&mut self, iterations: u8, last_prime: u64) -> u64 {
+        let mut prime: u64 = self.get_random_prime(iterations);
+        while prime == last_prime { prime = self.get_random_prime(iterations); }
+        return prime;
+    }
+
+    // Generate a random number min < N < max that is coprime with coprimme
+    fn gen_random_coprime_number_in_range(&mut self, min: u64, max: u64, coprime: u64) -> u64 {
+        loop {
+            let prime: u64 = self.get_rng().random_range(min..max);
+            println!("testing {} for coprimality with {}", prime, coprime);
+            if are_coprime(coprime, prime) { return prime; }
+        }
+    }
 }
 
 pub struct Server {

@@ -1,6 +1,5 @@
 use rand::prelude::*;
 
-struct U4096 {
 // fn gcd(a: u64, b: u64) -> u64 {
     }
 }

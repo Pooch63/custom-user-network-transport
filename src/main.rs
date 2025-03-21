@@ -34,6 +34,9 @@ fn gcd(a: u64, b: u64) -> u64 {
     }
     return copy_a;
 }
+fn are_coprime(a: u64, b: u64) -> bool {
+    // Are they both even? If so, they're not coprime
+    if ((a | b) & 1) == 0 { return false; }
 
 fn number_bit_set(num: u64, bit: u8) -> bool {
     return (num & (1 << bit as u64)) != 0;

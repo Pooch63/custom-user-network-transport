@@ -1,6 +1,5 @@
 use rand::prelude::*;
 
-// fn gcd(a: u64, b: u64) -> u64 {
 /*
     Tested a GCD function like this:
     
@@ -38,8 +37,7 @@ fn are_coprime(a: u64, b: u64) -> bool {
     // Are they both even? If so, they're not coprime
     if ((a | b) & 1) == 0 { return false; }
 
-fn number_bit_set(num: u64, bit: u8) -> bool {
-    return (num & (1 << bit as u64)) != 0;
+    return gcd(a, b) == 1;
 }
 // Find modular inverse b such that ab = 1 (mod m),
 // ASSUMING a and m are coprime
@@ -71,7 +69,6 @@ fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
 //   A^((p - 1)/2) = 1 (mod p) OR A^((p - 1)/2) = -1 (mod p)
 fn number_passes_miller_rabin(prime: u64, base: u64) -> bool {
     assert!((prime & 1) == 1);
-    println!("trying {} with base {}", prime, base);
 
     let exp: u64 = prime - 1;
     if bigmod(base, exp, prime) != 1 { return false; }
@@ -82,7 +79,7 @@ fn number_passes_miller_rabin(prime: u64, base: u64) -> bool {
     return true;
 }
 
-static first_primes: [u64; 200] = [
+static FIRST_PRIMES: [u64; 200] = [
     2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37,
     41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
     89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
@@ -143,10 +140,16 @@ impl NumberHandler {
     fn get_random_u64(&mut self) -> u64 {
         return self.get_rng().random::<u64>();
     }
+    // Generate a u8 with the given number of bits
+    // fn get_random_num(&mut self, bit_count: u8) -> u8 {
+    //     return self.get_rng().random::<u8>()
+    // }
     fn get_random_prime(&mut self, iterations: u8) -> u64 {
         loop {
             let candidate: u64 = self.get_rng().random::<u8>() as u64;
             let mut valid: bool = true;
+            // Check if it's divisible by the first few hundred prime factors
+            // If it is, then it can't itself be prime
             for prime in 0..FIRST_PRIMES.len() {
                 // Can't be divisible by numbers greater than it
                 if candidate * candidate > FIRST_PRIMES[prime] { break; }
@@ -157,7 +160,6 @@ impl NumberHandler {
             }
             if valid && self.miller_rabin_prime_test(candidate, iterations) { return candidate; }
         }
-        return 1;
     }
     // Get a random prime different from the given number
     fn get_different_random_prime(&mut self, iterations: u8, last_prime: u64) -> u64 {
@@ -177,9 +179,14 @@ impl NumberHandler {
 }
 
 pub struct Server {
-    max_clients: u8
+    max_clients: u8,
+    handler: NumberHandler
 }
 impl Server {
+    pub fn new(max_clients: u8) -> Self {
+        Self{ max_clients, handler: NumberHandler::new() }
+    }
+
     pub fn receive(_request: &Vec<u8>, _response: &mut Vec<u8>) -> bool {
         true
     }
@@ -209,7 +216,12 @@ impl Server {
 fn main() {
     let mut handler: NumberHandler = NumberHandler::new();
     println!("{}", bigmod(5, 55, 221));
-    println!("{}", bigmod(3, 7, 11));
     println!("{}", handler.miller_rabin_prime_test(993, 64));
     println!("{}", handler.get_random_prime(64));
+
+    let mut server: Server = Server::new(10);
+    server.start_rsa(64);
+
+    println!("{}", gcd(127384, 64));
+    // println!("{}", are_coprime(5051, 6496));
 }

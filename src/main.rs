@@ -219,6 +219,27 @@ impl Server {
     pub fn receive(_request: &Vec<u8>, _response: &mut Vec<u8>) -> bool {
         true
     }
+
+    fn start_rsa(&mut self, iterations: u8) -> bool {
+        let prime_a: u64 = self.handler.get_random_prime(iterations);
+        let prime_b: u64 = self.handler.get_different_random_prime(iterations, prime_a);
+
+        let product: u64 = prime_a * prime_b;
+        // Compute Euler's totient funtion for the product
+        let max_range = (prime_a - 1) * (prime_b - 1);
+
+        println!("p = {}, q = {}, n = {}, phi(n) = {}", prime_a, prime_b, product, max_range);
+
+        // Generate random number 1 < N < phi(product) that is coprime with phi(product)
+        let public = self.handler.gen_random_coprime_number_in_range(1, max_range, max_range);
+
+        let private = get_modular_inverse(public, max_range);
+
+        println!("(public, private, shared) = ({}, {}, {})", public, private, max_range);
+
+
+        true
+    }
 }
 
 fn main() {

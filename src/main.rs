@@ -62,21 +62,27 @@ fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
     return final_mod % m;
 }
 
-// Test one case of the Miller-Rabin for a potential prime p and a base A
+// Test one case of the Miller-Rabin for a potential prime p and a base A, given (p - 1)'s mantissa.
+// e.g. the number M that satisfies p - 1 = 2^N * M
 // Assumes that p is odd
 // If any of the following is not true:
 //   A^(p - 1) = 1 (mod p)
 //   A^((p - 1)/2) = 1 (mod p) OR A^((p - 1)/2) = -1 (mod p)
-fn number_passes_miller_rabin(prime: u64, base: u64) -> bool {
+// Run the last test for {M, M * 2, M * 2^2, M * 2^3, ... prime}
+// It's not a prime. Return false if number is not a prime, true if there's a 3/4 chance it is
+fn number_passes_miller_rabin(mut mantissa: u64, prime: u64, base: u64) -> bool {
     assert!((prime & 1) == 1);
 
-    let exp: u64 = prime - 1;
-    if bigmod(base, exp, prime) != 1 { return false; }
+    let mut power: u64 = bigmod(base, mantissa, prime);
+    if power == 1 || power == (prime - 1) { return true; }
+    
+    while mantissa < prime - 1 {
+        power = (power * power) % prime;
+        mantissa = mantissa << 1;
+        if power == 1 || power == (prime - 1) { return true; }
+    }
 
-    let halved = bigmod(base, exp >> 1, prime);
-    if halved != 1 && halved != (prime - 1) { return false; }
-
-    return true;
+    return false;
 }
 
 static FIRST_PRIMES: [u64; 200] = [
@@ -113,26 +119,22 @@ impl NumberHandler {
     }
     fn miller_rabin_prime_test(&mut self, num: u64, iterations: u8) -> bool {
         // If it's even and not 2, it's not a prime
-        if num < 3 { return num == 2; }
+        if num < 4 { return num == 2 || num == 3; }
         if (num & 1) == 0 { return false; }
     
-        // // Find a 2^e * m = num
-        // let mut e: u8 = 0;
-        // let mut m: u8 = 0;
-        // let mut even: u64 = num - 1;
+        // Find a 2^e * m = num
+        let mut e: u8 = 0;
+        let mut m: u64 = num - 1;
     
-        // while (even & 1) == 0 {
-        //     e = e + 1;
-        //     even = even >> 1;
-        // }
-        // m = (even & 0b11111111) as u8;
-        // println!("2^{}*{}={}", e, m, num);
+        while (m & 1) == 0 {
+            e = e + 1;
+            m = m >> 1;
+        }
+        println!("2^{}*{}={} - 1", e, m, num);
     
         for _iter in 0..iterations {
-            let mut base: u64 = self.get_rng().random_range(2u64..num);
-            // Make sure it's odd -- an even number is obviously not a prime
-            if base != 2 && (base & 1) == 0 { base = base | 1; }
-            if !number_passes_miller_rabin(num, base) { return false; }
+            let base: u64 = self.get_rng().random_range(2u64..(num - 1));
+            if !number_passes_miller_rabin(m, num, base) { return false; }
         }
     
         return true;
@@ -140,10 +142,6 @@ impl NumberHandler {
     fn get_random_u64(&mut self) -> u64 {
         return self.get_rng().random::<u64>();
     }
-    // Generate a u8 with the given number of bits
-    // fn get_random_num(&mut self, bit_count: u8) -> u8 {
-    //     return self.get_rng().random::<u8>()
-    // }
     fn get_random_prime(&mut self, iterations: u8) -> u64 {
         loop {
             let candidate: u64 = self.get_rng().random::<u8>() as u64;
@@ -221,7 +219,4 @@ fn main() {
 
     let mut server: Server = Server::new(10);
     server.start_rsa(64);
-
-    println!("{}", gcd(127384, 64));
-    // println!("{}", are_coprime(5051, 6496));
 }

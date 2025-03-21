@@ -7,6 +7,64 @@ use rand::prelude::*;
 fn number_bit_set(num: u64, bit: u8) -> bool {
     return (num & (1 << bit as u64)) != 0;
 }
+// Find modular inverse b such that ab = 1 (mod m),
+// ASSUMING a and m are coprime
+fn get_modular_inverse(a: u64, m: u64) -> u64 {
+    // By Fermat's Little Theorem, a -1 (mod m) = a^(m - 2) mod m
+    return bigmod(a, m - 2, m);
+}
+
+// type U4096 = fastnum::;
+
+// struct U4096 {
+//     // Little endian system... e.g., if you have 1, then 0b1 will be stored in the first element
+//     bytes: [u8; 512]
+// }
+// impl U4096 {
+//     pub fn new() -> Self {
+//         Self{ bytes: [0u8; 512] }
+//     }
+//     // Add byte << shift
+//     // fn add_byte_shift(&mut self, )
+//     pub fn add(&mut self, num: &U4096) {
+//         let mut carry: u16 = 0;
+//         for byte in 0..512 {
+//             let added: u16 = self.bytes[byte] as u16 + num.bytes[byte] as u16 + carry;
+//             self.bytes[byte] = (added & 255u16) as u8;
+//             carry = 0u16;
+//             if added > 255u16 {
+//                 carry = 1u16;
+//             }
+//         }
+//     }
+//     pub fn greater_than(&self,  num: &U4096) -> bool {
+//         let mut byte: usize = 511;
+//         while byte > 0 {
+//             let a: u8 = self.bytes[byte];
+//             let b: u8 = num.bytes[byte];
+//             if a > b { return true; }
+//             if a < b { return false; }
+//             byte = byte - 1;
+//         }
+//         return false;
+//     }
+//     pub fn multiply(&mut self, num: &U4096) {
+//         // Treat it like a bitshift and add
+//         for bit in (0usize)..(511usize * 8usize) {
+//             let byte: usize = bit & (511usize << 3usize);
+//             let local_bit: u8 = (bit & 7usize) as u8;
+//             if !byte_bit_set(self.bytes[byte], local_bit) { continue; }
+            
+//             // self.add_byte_shift(num.bytes[byte], bit);
+//         }
+//     }
+// }
+// impl Debug for U4096 {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         return writeln!(f, "{}", self.bytes[0]);
+//     }
+// }
+
 // Compute s^e mod m
 fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
     // We're essentially going to multiple s^n for every (1 << b), accounting

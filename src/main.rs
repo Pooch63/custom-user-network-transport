@@ -1,20 +1,7 @@
 use rand::prelude::*;
 
 struct U4096 {
-    // Little endian system... e.g., if you have 1, then 0b1 will be stored in the first element
-    bytes: [u8; 512]
-}
-impl U4096 {
-    pub fn add(&mut self, num: &U4096) {
-        let carry: u8 = 0;
-        for byte in 0..512 {
-            let added: u16 = self.bytes[byte] as u16 + num.bytes[byte] as u16 + carry;
-            self.bytes[byte] = (added & 255u8) as u8;
-            carry = 0u8;
-            if added > 255u8 {
-                carry = 1u8;
-            }
-        }
+// fn gcd(a: u64, b: u64) -> u64 {
     }
 }
 

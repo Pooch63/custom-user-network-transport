@@ -22,21 +22,18 @@ fn number_bit_set(num: u64, bit: u8) -> bool {
     return (num & (1 << bit as u64)) != 0;
 }
 // Compute s^e mod m
-fn bigmod(s: u64, e: u64, m: u64) -> u64 {
+fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
     // We're essentially going to multiple s^n for every (1 << b), accounting
     // for every set bit in e
     let mut final_mod: u64 = 1;
-
-    // Position of highest set bit
-    let final_bit: u8 = (e as f64 + 1.0).log2().ceil() as u8;
     // The mod of s^(2^n)
     let mut last_mod: u64 = s;
 
-    for bit in 0u8..final_bit {
-        if number_bit_set(e, bit) { final_mod *= last_mod };
+    while e > 0 {
+        if (e & 1) == 1 { final_mod = (final_mod * last_mod) % m; };
         last_mod = (last_mod * last_mod) % m;
+        e = e >> 1;
     }
-    println!("got past {}^{}%{}", s, e, m);
     return final_mod % m;
 }
 

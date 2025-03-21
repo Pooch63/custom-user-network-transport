@@ -1,6 +1,27 @@
 use rand::prelude::*;
 
 // fn gcd(a: u64, b: u64) -> u64 {
+/*
+    Tested a GCD function like this:
+    
+fn gcd(mut a: u64, mut b: u64) -> u64 {
+    loop {
+        if b == 0 { return a; }
+
+        let temp = a;
+        a = b;
+        b = temp % b;
+    }
+}
+
+    That is actually tested to be slower than the following implementation:
+*/
+    if a == 0 || b == 0 { return 0; }
+    let mut copy_a: u64 = a;
+    let mut copy_b: u64 = b;
+    while copy_a != copy_b {
+        if copy_a > copy_b {
+            copy_a = copy_a % copy_b;
     }
 }
 

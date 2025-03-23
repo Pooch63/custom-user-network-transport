@@ -5,5 +5,5 @@ authors = ["Kiyaan Pillai <kiyaan.pillai@gmail.com>"]
 edition = "2024"
 
 [dependencies]
-fastnum = "0.2.2"
+bnum = "0.13.0"
 rand = "0.9.0"

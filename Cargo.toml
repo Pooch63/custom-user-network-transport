@@ -4,6 +4,13 @@ version = "0.1.0"
 authors = ["Kiyaan Pillai <kiyaan.pillai@gmail.com>"]
 edition = "2024"
 
+[features]
+std = []
+default = ["std"]
+
 [dependencies]
-bnum = "0.13.0"
+bnum = { version = "0.13.0", features = [] }
 rand = "0.9.0"
+
+[profile.release]
+debug = true

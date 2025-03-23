@@ -1,6 +1,14 @@
 use rand::prelude::*;
+#[cfg(feature = "std")]
 use std::fmt;
+#[cfg(feature = "std")]
 use std::fmt::{ Debug, Display };
+
+mod primes;
+
+// The key is signed because we need intermediate negative values
+// during multiplicative modular inverse calculations
+type Key = bnum::types::I4096;
 
 /*
     Tested a GCD function like this:
@@ -17,33 +25,33 @@ fn gcd(mut a: u64, mut b: u64) -> u64 {
 
     That is actually tested to be slower than the following implementation:
 */
-fn gcd(a: u64, b: u64) -> u64 {
-    if a == 0 || b == 0 { return 0; }
+fn gcd(a: Key, b: Key) -> Key {
+    if a == Key::ZERO || b == Key::ZERO { return Key::ZERO; }
 
-    let mut copy_a: u64 = a;
-    let mut copy_b: u64 = b;
+    let mut copy_a: Key = a;
+    let mut copy_b: Key = b;
     while copy_a != copy_b {
         if copy_a == copy_b { return copy_a; }
         if copy_a > copy_b {
             copy_a = copy_a % copy_b;
-            if copy_a == 0 { return copy_b; };
+            if copy_a == Key::ZERO { return copy_b; };
         }
         else {
             copy_b = copy_b % copy_a;
-            if copy_b == 0 { return copy_a; }
+            if copy_b == Key::ZERO { return copy_a; }
         }
     }
     return copy_a;
 }
-fn are_coprime(a: u64, b: u64) -> bool {
+fn are_coprime(a: Key, b: Key) -> bool {
     // Are they both even? If so, they're not coprime
-    if ((a | b) & 1) == 0 { return false; }
+    if ((a | b) & Key::ONE) == Key::ZERO { return false; }
 
-    return gcd(a, b) == 1;
+    return gcd(a, b) == Key::ONE;
 }
-// Find modular inverse b such that ab = 1 (mod m),
-// ASSUMING a and m are coprime
-fn get_modular_inverse(a: u64, m: u64) -> u64 {
+// Find modular inverse i such that ai = 1 (mod b),
+// ASSUMING n and b are coprime
+fn get_modular_inverse(mut a: Key, mut b: Key) -> Key {
     // Using Extended Euclidean algorithm
 
     // Express r0 = x0 * a + m0
@@ -59,36 +67,37 @@ fn get_modular_inverse(a: u64, m: u64) -> u64 {
     // }
     // 1
 
-    let mut b: i64 = a.try_into().unwrap();
-    let mut c: i64 = m.try_into().unwrap();
+    let original_b: Key = b;
 
-    let (mut x, mut u, mut v) = (0i64, 1i64,0i64);
-    while b != 0 {
-        let q = c / b;
-        let r = c - b * q;
-        println!("{}  = {} * {} + {}", c, b, q, r);
-        let m = x-u*q;
-        (c,b, x, u) = (b,r, u, m);
+    let (mut x, mut u) = (Key::ZERO, Key::ONE);
+    // Recursively find such that x0 = m0 * a1 + m1
+    while a != Key::ZERO {
+        let q = b / a;
+        let r = b - a * q;
+        println!("{}  = {} * {} + {}", b, a, q, r);
+        let m = x - u * q;
+        (b, a, x, u) = (a, r, u, m);
     }
-    // If X is negative, add m to it -- we can do that since X is the modular inverse
-    if x < 0 { x = x + (m as i64); }
-    return x.try_into().unwrap();
+    // If X is negative, add the original value of b to it --
+    // we can do that since X is the modular inverse mod b
+    if x < Key::ZERO { x = x + original_b; }
+    return x;
 }
 
 // Compute s^e mod m
-fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
+fn bigmod(s: Key, mut e: Key, m: Key) -> Key {
     // We're essentially going to multiple s^n for every (1 << b), accounting
     // for every set bit in e
-    let mut final_mod: u64 = 1;
+    let mut final_mod: Key = Key::ONE;
     // The mod of s^(2^n)
-    let mut last_mod: u64 = s;
+    let mut last_mod: Key = s;
 
-    while e > 0 {
-        if (e & 1) == 1 { final_mod = (final_mod * last_mod) % m; };
+    while e > Key::ZERO {
+        if (e & Key::ONE) == Key::ONE { final_mod = (final_mod * last_mod) % m; };
         last_mod = (last_mod * last_mod) % m;
-        e = e >> 1;
+        e = e >> Key::ONE;
     }
-    return final_mod % m;
+    return final_mod;
 }
 
 // Test one case of the Miller-Rabin for a potential prime p and a base A, given (p - 1)'s mantissa.
@@ -99,87 +108,91 @@ fn bigmod(s: u64, mut e: u64, m: u64) -> u64 {
 //   A^((p - 1)/2) = 1 (mod p) OR A^((p - 1)/2) = -1 (mod p)
 // Run the last test for {M, M * 2, M * 2^2, M * 2^3, ... prime}
 // It's not a prime. Return false if number is not a prime, true if there's a 3/4 chance it is
-fn number_passes_miller_rabin(mut mantissa: u64, prime: u64, base: u64) -> bool {
-    assert!((prime & 1) == 1);
+fn number_passes_miller_rabin(mut mantissa: Key, prime: Key, base: Key) -> bool {
+    // Make sure it's odd
+    assert!((prime & Key::ONE) == Key::ONE);
 
-    let mut power: u64 = bigmod(base, mantissa, prime);
-    if power == 1 || power == (prime - 1) { return true; }
+    let mut power: Key = bigmod(base, mantissa, prime);
+    if power == Key::ONE || power == (prime - Key::ONE) { return true; }
     
-    while mantissa < prime - 1 {
+    while mantissa < (prime - Key::ONE) {
         power = (power * power) % prime;
-        mantissa = mantissa << 1;
-        if power == 1 || power == (prime - 1) { return true; }
+        mantissa = mantissa << Key::ONE;
+        if power == Key::ONE || power == (prime - Key::ONE) { return true; }
     }
 
     return false;
 }
 
-static FIRST_PRIMES: [u64; 200] = [
-    2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37,
-    41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
-    89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
-    139, 149, 151, 157, 163, 167, 173, 179, 181, 191,
-    193, 197, 199, 211, 223, 227, 229, 233, 239, 241,
-    251, 257, 263, 269, 271, 277, 281, 283, 293, 307,
-    311, 313, 317, 331, 337, 347, 349, 353, 359, 367,
-    373, 379, 383, 389, 397, 401, 409, 419, 421, 431,
-    433, 439, 443, 449, 457, 461, 463, 467, 479, 487,
-    491, 499, 503, 509, 521, 523, 541, 547, 557, 563,
-    569, 571, 577, 587, 593, 599, 601, 607, 613, 617,
-    619, 631, 641, 643, 647, 653, 659, 661, 673, 677,
-    683, 691, 701, 709, 719, 727, 733, 739, 743, 751,
-    757, 761, 769, 773, 787, 797, 809, 811, 821, 823,
-    827, 829, 839, 853, 857, 859, 863, 877, 881, 883,
-    887, 907, 911, 919, 929, 937, 941, 947, 953, 967,
-    971, 977, 983, 991, 997, 1009, 1013, 1019, 1021, 1031,
-    1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087, 1091,
-    1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153,
-    1163, 1171, 1181, 1187, 1193, 1201, 1213, 1217, 1223 
-];
 struct NumberHandler {
+    key_byte_size: usize,
     rng: ThreadRng
 }
 impl NumberHandler {
-    fn new() -> Self {
-        Self { rng: rand::rng() }
+    fn new(key_byte_size: usize) -> Self {
+        Self { key_byte_size, rng: rand::rng() }
     }
     fn get_rng(&mut self) -> &mut ThreadRng {
         return &mut self.rng;
     }
-    fn miller_rabin_prime_test(&mut self, num: u64, iterations: u8) -> bool {
+    
+    fn get_random_u8(&mut self) -> u8 {
+        self.get_rng().random::<u8>()
+    }
+    // Ensures that the number is at least 1 << bits
+    fn get_random_n_byte_key(&mut self, byte_count: usize) -> Key {
+        let mut bytes: [u8; Key::BYTES as usize] = [0; Key::BYTES as usize];
+        for ind in 0usize..byte_count {
+            let mut byte: u8 = self.get_random_u8();
+            if ind == byte_count - 1 { byte = byte | 0b10000000; }
+            bytes[ind] = byte;
+        }
+        match Key::from_le_slice(&bytes) {
+            Some(key) => key,
+            None      => Key::ZERO
+        }
+    }
+    #[inline]
+    fn get_random_key(&mut self, ensure_odd: bool) -> Key {
+        self.get_random_n_byte_key(self.key_byte_size) | (if ensure_odd { Key::ONE } else { Key::ZERO }) 
+    }
+    fn get_random_key_range(&mut self, range: std::ops::Range<Key>, ensure_odd: bool) -> Key {
+        self.get_random_key(ensure_odd) % (range.end - range.start - Key::ONE) + range.start
+    }
+    // An even number will correctly fail the test, but it's a good idea to just
+    // avoid passing in an even number anyway
+    fn miller_rabin_prime_test(&mut self, num: Key, iterations: u8) -> bool {
         // If it's even and not 2, it's not a prime
-        if num < 4 { return num == 2 || num == 3; }
-        if (num & 1) == 0 { return false; }
+        if num < Key::FOUR { return num == Key::TWO || num == Key::THREE; }
     
         // Find a 2^e * m = num
-        let mut e: u8 = 0;
-        let mut m: u64 = num - 1;
+        let mut m: Key = num - Key::ONE;
     
-        while (m & 1) == 0 {
-            e = e + 1;
-            m = m >> 1;
+        while (m & Key::ONE) == Key::ZERO {
+            m = m >> Key::ONE;
         }
     
         for _iter in 0..iterations {
-            let base: u64 = self.get_rng().random_range(2u64..(num - 1));
+            let base: Key = self.get_random_key_range(Key::TWO..(num - Key::ONE), false);
             if !number_passes_miller_rabin(m, num, base) { return false; }
         }
     
         return true;
     }
-    fn get_random_u64(&mut self) -> u64 {
-        return self.get_rng().random::<u64>();
-    }
-    fn get_random_prime(&mut self, iterations: u8) -> u64 {
+    fn get_random_prime(&mut self, iterations: u8) -> Key {
+        
         loop {
-            let candidate: u64 = self.get_rng().random::<u16>() as u64;
+            // Make sure key is odd
+            let candidate: Key = self.get_random_key(true);
+
             let mut valid: bool = true;
             // Check if it's divisible by the first few hundred prime factors
             // If it is, then it can't itself be prime
-            for prime in 0..FIRST_PRIMES.len() {
+            for prime in 0..primes::FIRST_PRIMES.len() {
+                let key: Key = Key::from(prime);
                 // Can't be divisible by numbers greater than it
-                if candidate * candidate > FIRST_PRIMES[prime] { break; }
-                if candidate % FIRST_PRIMES[prime] == 0 {
+                if candidate * candidate > key { break; }
+                if candidate % key == Key::ZERO {
                     valid = false;
                     break;
                 }
@@ -188,36 +201,37 @@ impl NumberHandler {
         }
     }
     // Get a random prime different from the given number
-    fn get_different_random_prime(&mut self, iterations: u8, last_prime: u64) -> u64 {
-        let mut prime: u64 = self.get_random_prime(iterations);
+    fn get_different_random_prime(&mut self, iterations: u8, last_prime: Key) -> Key {
+        let mut prime: Key = self.get_random_prime(iterations);
         while prime == last_prime { prime = self.get_random_prime(iterations); }
         return prime;
     }
 
     // Generate a random number min < N < max that is coprime with coprimme
-    fn gen_random_coprime_number_in_range(&mut self, min: u64, max: u64, coprime: u64) -> u64 {
+    fn gen_random_coprime_number_in_range(&mut self, min: Key, max: Key, coprime: Key) -> Key {
         loop {
-            let prime: u64 = self.get_rng().random_range(min..max);
+            let prime: Key = self.get_random_key_range(min..max, false);
             if are_coprime(coprime, prime) { return prime; }
         }
     }
 }
 
-type Key = u64;
 struct KeyInfo {
     public: Key,
     private: Key,
     shared: Key
 }
 fn format_keys(keys: &KeyInfo, f: &mut fmt::Formatter) -> fmt::Result {
-    writeln!(f, "( public: {}, private: {}, shared: {} )", keys.public, keys.private, keys.shared)
+    write!(f, "( public: {}, private: {}, shared: {} )", keys.public, keys.private, keys.shared)
     
 }
+#[cfg(feature = "std")]
 impl Debug for KeyInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         format_keys(self, f)
     }
 }
+#[cfg(feature = "std")]
 impl Display for KeyInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         format_keys(self, f)
@@ -225,12 +239,15 @@ impl Display for KeyInfo {
 }
 
 pub struct Server {
-    max_clients: u8,
     handler: NumberHandler
 }
 impl Server {
-    pub fn new(max_clients: u8) -> Self {
-        Self{ max_clients, handler: NumberHandler::new() }
+    // Key size in bytes
+    pub fn new(key_byte_size: usize) -> Self {
+        // A key can be at max one byte less than half of the max capacity
+        // Otherwise, overflow errors will occur
+        assert!(key_byte_size < (Key::BYTES >> 1).try_into().unwrap());
+        Self{ handler: NumberHandler::new(key_byte_size) }
     }
 
     pub fn receive(_request: &Vec<u8>, _response: &mut Vec<u8>) -> bool {
@@ -238,36 +255,33 @@ impl Server {
     }
 
     fn start_rsa(&mut self, iterations: u8) -> KeyInfo {
-        let prime_a: u64 = self.handler.get_random_prime(iterations);
-        let prime_b: u64 = self.handler.get_different_random_prime(iterations, prime_a);
+        let prime_a: Key = self.handler.get_random_prime(iterations);
+        let prime_b: Key = self.handler.get_different_random_prime(iterations, prime_a);
 
-        let shared: u64 = prime_a * prime_b;
+        let shared: Key = prime_a * prime_b;
         // Compute Euler's totient funtion for the shared
-        let max_range = (prime_a - 1) * (prime_b - 1);
+        let max_range = (prime_a - Key::ONE) * (prime_b - Key::ONE);
         // Generate random number 1 < N < phi(shared) that is coprime with phi(shared)
-        let private = self.handler.gen_random_coprime_number_in_range(1, max_range, max_range);
+        let private = self.handler.gen_random_coprime_number_in_range(Key::ONE, max_range, max_range);
         let public = get_modular_inverse(private, max_range);
-
-        println!("p = {}, q = {}, n = {}, phi(n) = {}", prime_a, prime_b, shared, max_range);
-        println!("(public, private, shared) = ({}, {}, {})", public, private, shared);
-        println!("{}", (public * private % max_range));
-        println!("{} * {} (mod {}) = 1", private, public, max_range);
 
         KeyInfo{ private, public, shared }
     }
     fn handle_client(&mut self) -> bool {
         let keys: KeyInfo = self.start_rsa(64);
         println!("{}", keys);
+
+        let payload = Key::NINE;
+        let encrypted = bigmod(payload, keys.private, keys.shared);
+        let decrypted = bigmod(encrypted, keys.public, keys.shared);
+        println!("{}", decrypted);
+
         true
     }
 }
 
 fn main() {
-    let mut handler: NumberHandler = NumberHandler::new();
-    // println!("{}", bigmod(5, 55, 221));
-    println!("{}", handler.miller_rabin_prime_test(997, 64));
-    println!("{}", get_modular_inverse(37, 50));
-
-    let mut server: Server = Server::new(10);
+    let mut server: Server = Server::new(100);
     server.handle_client();
+    // server.start_debug_rsa();
 }

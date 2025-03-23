@@ -1,4 +1,6 @@
 use rand::prelude::*;
+use std::fmt;
+use std::fmt::{ Debug, Display };
 
 /*
     Tested a GCD function like this:
@@ -42,8 +44,35 @@ fn are_coprime(a: u64, b: u64) -> bool {
 // Find modular inverse b such that ab = 1 (mod m),
 // ASSUMING a and m are coprime
 fn get_modular_inverse(a: u64, m: u64) -> u64 {
-    // By Fermat's Little Theorem, a -1 (mod m) = a^(m - 2) mod m
-    return bigmod(a, m - 2, m);
+    // Using Extended Euclidean algorithm
+
+    // Express r0 = x0 * a + m0
+    // let mut r0: u64 = m;
+    // let mut a0: u64 = a;
+    // while a0 > 1 {
+    //     // r0 = x0 * a0 + m0
+    //     let x0: u64 = r0 / a0;
+    //     let m0: u64 = r0 - x0 * a0;
+    //     println!("{}  = {} * {} + {}", r0, x0, a0, m0);
+    //     r0 = a0;
+    //     a0 = m0;
+    // }
+    // 1
+
+    let mut b: i64 = a.try_into().unwrap();
+    let mut c: i64 = m.try_into().unwrap();
+
+    let (mut x, mut u, mut v) = (0i64, 1i64,0i64);
+    while b != 0 {
+        let q = c / b;
+        let r = c - b * q;
+        println!("{}  = {} * {} + {}", c, b, q, r);
+        let m = x-u*q;
+        (c,b, x, u) = (b,r, u, m);
+    }
+    // If X is negative, add m to it -- we can do that since X is the modular inverse
+    if x < 0 { x = x + (m as i64); }
+    return x.try_into().unwrap();
 }
 
 // Compute s^e mod m
@@ -130,7 +159,6 @@ impl NumberHandler {
             e = e + 1;
             m = m >> 1;
         }
-        println!("2^{}*{}={} - 1", e, m, num);
     
         for _iter in 0..iterations {
             let base: u64 = self.get_rng().random_range(2u64..(num - 1));
@@ -144,7 +172,7 @@ impl NumberHandler {
     }
     fn get_random_prime(&mut self, iterations: u8) -> u64 {
         loop {
-            let candidate: u64 = self.get_rng().random::<u8>() as u64;
+            let candidate: u64 = self.get_rng().random::<u16>() as u64;
             let mut valid: bool = true;
             // Check if it's divisible by the first few hundred prime factors
             // If it is, then it can't itself be prime
@@ -170,9 +198,29 @@ impl NumberHandler {
     fn gen_random_coprime_number_in_range(&mut self, min: u64, max: u64, coprime: u64) -> u64 {
         loop {
             let prime: u64 = self.get_rng().random_range(min..max);
-            println!("testing {} for coprimality with {}", prime, coprime);
             if are_coprime(coprime, prime) { return prime; }
         }
+    }
+}
+
+type Key = u64;
+struct KeyInfo {
+    public: Key,
+    private: Key,
+    shared: Key
+}
+fn format_keys(keys: &KeyInfo, f: &mut fmt::Formatter) -> fmt::Result {
+    writeln!(f, "( public: {}, private: {}, shared: {} )", keys.public, keys.private, keys.shared)
+    
+}
+impl Debug for KeyInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        format_keys(self, f)
+    }
+}
+impl Display for KeyInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        format_keys(self, f)
     }
 }
 
@@ -189,34 +237,37 @@ impl Server {
         true
     }
 
-    fn start_rsa(&mut self, iterations: u8) -> bool {
+    fn start_rsa(&mut self, iterations: u8) -> KeyInfo {
         let prime_a: u64 = self.handler.get_random_prime(iterations);
         let prime_b: u64 = self.handler.get_different_random_prime(iterations, prime_a);
 
-        let product: u64 = prime_a * prime_b;
-        // Compute Euler's totient funtion for the product
+        let shared: u64 = prime_a * prime_b;
+        // Compute Euler's totient funtion for the shared
         let max_range = (prime_a - 1) * (prime_b - 1);
+        // Generate random number 1 < N < phi(shared) that is coprime with phi(shared)
+        let private = self.handler.gen_random_coprime_number_in_range(1, max_range, max_range);
+        let public = get_modular_inverse(private, max_range);
 
-        println!("p = {}, q = {}, n = {}, phi(n) = {}", prime_a, prime_b, product, max_range);
+        println!("p = {}, q = {}, n = {}, phi(n) = {}", prime_a, prime_b, shared, max_range);
+        println!("(public, private, shared) = ({}, {}, {})", public, private, shared);
+        println!("{}", (public * private % max_range));
+        println!("{} * {} (mod {}) = 1", private, public, max_range);
 
-        // Generate random number 1 < N < phi(product) that is coprime with phi(product)
-        let public = self.handler.gen_random_coprime_number_in_range(1, max_range, max_range);
-
-        let private = get_modular_inverse(public, max_range);
-
-        println!("(public, private, shared) = ({}, {}, {})", public, private, max_range);
-
-
+        KeyInfo{ private, public, shared }
+    }
+    fn handle_client(&mut self) -> bool {
+        let keys: KeyInfo = self.start_rsa(64);
+        println!("{}", keys);
         true
     }
 }
 
 fn main() {
     let mut handler: NumberHandler = NumberHandler::new();
-    println!("{}", bigmod(5, 55, 221));
-    println!("{}", handler.miller_rabin_prime_test(993, 64));
-    println!("{}", handler.get_random_prime(64));
+    // println!("{}", bigmod(5, 55, 221));
+    println!("{}", handler.miller_rabin_prime_test(997, 64));
+    println!("{}", get_modular_inverse(37, 50));
 
     let mut server: Server = Server::new(10);
-    server.start_rsa(64);
+    server.handle_client();
 }

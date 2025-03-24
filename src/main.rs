@@ -1,20 +1,41 @@
 use rand::prelude::*;
-#[cfg(feature = "std")]
-use std::fmt;
-#[cfg(feature = "std")]
-use std::fmt::{ Debug, Display };
 
 mod primes;
+mod hash;
+use hash::{ sha256 };
 mod keygen;
 use keygen::{ Key, RSAKeyInfo, NumberHandler, bigmod };
 
+trait Default {
+    const DEFAULT: Self;
 }
+impl Default for RSAKeyInfo {
+    const DEFAULT: RSAKeyInfo = RSAKeyInfo { public: Key::ZERO, private: Key::ZERO, shared: Key::ZERO };
 }
 
-struct NumberHandler {
-    key_byte_size: usize,
-    rng: ThreadRng
+/* Keys take a while to generate, so the server will store a list of keys from which to choose randomly.
+    It will keep generating new keys in the background and add the key info to the list of possible keys.
+    We also can't store an unlimited number of keys -- they're way too big. So, after a while, we'll overwrite
+    the oldest keys. */
+struct KeysContainer<KeyInfo: Default, const N: usize> {
+    keys: [KeyInfo; N],
+    current_size: usize,
+    insert_index: usize
 }
+impl<KeyInfo: Default + Copy, const N: usize> KeysContainer<KeyInfo, { N }> {
+    fn new() -> Self {
+        Self{
+            keys: [KeyInfo::DEFAULT; N],
+            current_size: 0,
+            insert_index: 0 }
+    }
+    fn insert_key(&mut self, key: &KeyInfo) {
+        self.keys[self.insert_index] = *key;
+        self.insert_index = self.insert_index + 1;
+        // Start overwriting if we're at max capacity
+        if self.current_size < N - 1 {
+            self.current_size = self.current_size + 1;
+            self.insert_index = self.insert_index % N;
         }
     }
     fn get_random(&self, rng: &mut ThreadRng) -> &KeyInfo {
@@ -24,23 +45,24 @@ struct NumberHandler {
     }
 }
 
-pub struct Server {
-    handler: NumberHandler
+pub struct Server<const MAX_KEYS: usize = 10> {
+    handler: NumberHandler,
+    rsa_keys: KeysContainer<RSAKeyInfo, { MAX_KEYS }>
 }
-impl Server {
+impl<const MAX_KEYS: usize> Server<{ MAX_KEYS }> {
     // Key size in bytes
     pub fn new(key_byte_size: usize) -> Self {
         // A key can be at max one byte less than half of the max capacity
         // Otherwise, overflow errors will occur
         assert!(key_byte_size < (Key::BYTES >> 1).try_into().unwrap());
-        Self{ handler: NumberHandler::new(key_byte_size) }
+        Self{ rsa_keys: KeysContainer::<RSAKeyInfo, { MAX_KEYS }>::new(), handler: NumberHandler::new(key_byte_size) }
     }
 
     pub fn receive(_request: &Vec<u8>, _response: &mut Vec<u8>) -> bool {
         true
     }
 
-    fn start_rsa(&mut self, iterations: u8) -> KeyInfo {
+    fn get_rsa_keys(&mut self, iterations: u8) -> RSAKeyInfo {
         let prime_a: Key = self.handler.get_random_prime(iterations);
         let prime_b: Key = self.handler.get_different_random_prime(iterations, prime_a);
 
@@ -49,12 +71,12 @@ impl Server {
         let max_range = (prime_a - Key::ONE) * (prime_b - Key::ONE);
         // Generate random number 1 < N < phi(shared) that is coprime with phi(shared)
         let private = self.handler.gen_random_coprime_number_in_range(Key::ONE, max_range, max_range);
-        let public = get_modular_inverse(private, max_range);
+        let public = keygen::get_modular_inverse(private, max_range);
 
-        KeyInfo{ private, public, shared }
+        RSAKeyInfo{ private, public, shared }
     }
     fn handle_client(&mut self) -> bool {
-        let keys: KeyInfo = self.start_rsa(64);
+        let keys: RSAKeyInfo = self.get_rsa_keys(64);
         println!("{}", keys);
 
         let payload = Key::NINE;
@@ -67,7 +89,10 @@ impl Server {
 }
 
 fn main() {
-    let mut server: Server = Server::new(100);
-    server.handle_client();
+    266u64 as u8;
+    let sha = hash::sha256("quisiear");
+    println!("{:x}{:x}{:x}{:x}", sha[0], sha[1], sha[2], sha[3]);
+    // let mut server: Server = Server::new(100);
+    // server.handle_client();
     // server.start_debug_rsa();
 }

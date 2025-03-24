@@ -69,23 +69,17 @@ fn get_new_hashes(old_hashes: &mut [u32; 8], blocks: [u32; 64]) {
     let mut h = old_hashes[7];
 
     for i in 0usize..64usize {
-        println!("Sigma 1: {}", sigma_1(e));
         let T1: u64 = u64::from(h) + u64::from(sigma_1(e)) + u64::from(ch(e, f, g)) + u64::from(K[i]) + u64::from(blocks[i]);
-        println!("got pat T1");
         let T2: u64 = u64::from(sigma_0(a)) + u64::from(maj(a, b, c));
-        println!("got pat T2");
         h = g;
         g = f;
         f = e;
-        println!("UH OH...");
         e = u64_to_u32(u64::from(d) + T1);
         d = c;
         c = b;
         b = a;
         a = u64_to_u32(T1 + T2);
-        println!("PHEW!");
     }
-    println!("HEY HE");
     old_hashes[0] = u64_to_u32(u64::from(old_hashes[0]) + u64::from(a));
     old_hashes[1] = u64_to_u32(u64::from(old_hashes[1]) + u64::from(b));
     old_hashes[2] = u64_to_u32(u64::from(old_hashes[2]) + u64::from(c));
@@ -94,7 +88,6 @@ fn get_new_hashes(old_hashes: &mut [u32; 8], blocks: [u32; 64]) {
     old_hashes[5] = u64_to_u32(u64::from(old_hashes[5]) + u64::from(f));
     old_hashes[6] = u64_to_u32(u64::from(old_hashes[6]) + u64::from(g));
     old_hashes[7] = u64_to_u32(u64::from(old_hashes[7]) + u64::from(h));
-    println!("FUCKKK");
 }
 #[inline]
 fn u32s_to_u64(high: u32, low: u32) -> u64 {

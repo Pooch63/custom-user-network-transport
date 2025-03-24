@@ -10,6 +10,10 @@ use crate::primes;
 // during multiplicative modular inverse calculations
 pub type Key = bnum::types::I4096;
 
+fn serialize_key(key: &Key) -> [u8; Key::BYTES_USIZE] {
+    *key.to_le_bytes()
+}
+
 /*
     Tested a GCD function like this:
     
@@ -208,6 +212,13 @@ impl NumberHandler {
         return prime;
     }
 
+    // Generate a random number coprime to the given key
+    pub fn gen_random_coprime(&mut self, coprime: Key) -> Key {
+        loop {
+            let prime: Key = self.get_random_key(false);
+            if are_coprime(coprime, prime) { return prime; }
+        }
+    }
     // Generate a random number min < N < max that is coprime with coprimme
     pub fn gen_random_coprime_number_in_range(&mut self, min: Key, max: Key, coprime: Key) -> Key {
         loop {

@@ -10,9 +10,9 @@ use crate::primes;
 // during multiplicative modular inverse calculations
 pub type Key = bnum::types::I4096;
 
-fn serialize_key(key: &Key) -> [u8; Key::BYTES_USIZE] {
-    *key.to_le_bytes()
-}
+// fn serialize_key(key: &Key) -> [u8; Key::BYTES_USIZE] {
+//     *key.to_le_bytes()
+// }
 
 /*
     Tested a GCD function like this:

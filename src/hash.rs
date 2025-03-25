@@ -69,16 +69,16 @@ fn get_new_hashes(old_hashes: &mut [u32; 8], blocks: [u32; 64]) {
     let mut h = old_hashes[7];
 
     for i in 0usize..64usize {
-        let T1: u64 = u64::from(h) + u64::from(sigma_1(e)) + u64::from(ch(e, f, g)) + u64::from(K[i]) + u64::from(blocks[i]);
-        let T2: u64 = u64::from(sigma_0(a)) + u64::from(maj(a, b, c));
+        let t1: u64 = u64::from(h) + u64::from(sigma_1(e)) + u64::from(ch(e, f, g)) + u64::from(K[i]) + u64::from(blocks[i]);
+        let t2: u64 = u64::from(sigma_0(a)) + u64::from(maj(a, b, c));
         h = g;
         g = f;
         f = e;
-        e = u64_to_u32(u64::from(d) + T1);
+        e = u64_to_u32(u64::from(d) + t1);
         d = c;
         c = b;
         b = a;
-        a = u64_to_u32(T1 + T2);
+        a = u64_to_u32(t1 + t2);
     }
     old_hashes[0] = u64_to_u32(u64::from(old_hashes[0]) + u64::from(a));
     old_hashes[1] = u64_to_u32(u64::from(old_hashes[1]) + u64::from(b));

@@ -10,7 +10,12 @@ default = ["std"]
 
 [dependencies]
 bnum = { version = "0.13.0", features = [] }
+libc = "0.2.171"
+pnet = "0.35.0"
 rand = "0.9.0"
+
+windows = { version = "0.61", features = ["Win32_Networking_WinSock"] }
+winsafe = { version = "0.0.23", features = ["kernel"] }
 
 [profile.release]
 debug = true

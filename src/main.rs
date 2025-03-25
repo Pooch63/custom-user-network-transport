@@ -1,3 +1,4 @@
+use std::env;
 use rand::prelude::*;
 
 mod primes;
@@ -5,6 +6,9 @@ mod hash;
 use hash::{ sha256 };
 mod keygen;
 use keygen::{ Key, RSAKeyInfo, NumberHandler, bigmod };
+
+mod socket;
+use crate::socket::WinSock;
 
 trait Default {
     const DEFAULT: Self;
@@ -75,6 +79,11 @@ impl<const MAX_KEYS: usize> Server<{ MAX_KEYS }> {
 
         RSAKeyInfo{ private, public, shared }
     }
+    // fn hash_dhke(&self, dhke: DHKEKeyInfo) -> [u64; 4] {}
+    // fn get_dhke_keys(&mut self, iterations: u8) -> DHKEKeyInfo {
+    //     let shared_base: Key = self.handler.get_random_prime(iterations);
+    //     let shared_mod: Key = self.handler.gen_random_coprime(shared_base);
+    // }
     fn handle_client(&mut self) -> bool {
         let keys: RSAKeyInfo = self.get_rsa_keys(64);
         println!("{}", keys);
@@ -89,10 +98,31 @@ impl<const MAX_KEYS: usize> Server<{ MAX_KEYS }> {
 }
 
 fn main() {
-    266u64 as u8;
-    let sha = hash::sha256("quisiear");
-    println!("{:x}{:x}{:x}{:x}", sha[0], sha[1], sha[2], sha[3]);
+    // let sha = hash::sha256("quisieara");
+    // println!("{:x}{:x}{:x}{:x}", sha[0], sha[1], sha[2], sha[3]);
     // let mut server: Server = Server::new(100);
     // server.handle_client();
     // server.start_debug_rsa();
+
+    let args: Vec<String> = env::args().collect();
+
+    socket::initialize_sockets();
+
+    if args.len() == 1 || args[1] == "server" {
+        let server = socket::create_server_socket();
+        socket::server_listen(server);
+
+        socket::close_socket(server);
+        socket::clean_up();
+    }
+    else if args[1] == "queue" {
+        if args.len() == 2 {
+            panic!("Queue expects a socket index argument");
+        }
+        let client = socket::create_client_socket();
+        socket::queue_server(
+            client,
+            WinSock::SOCKET(args[2].parse::<usize>().unwrap())
+        );
+    }
 }
